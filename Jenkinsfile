@@ -1,0 +1,66 @@
+#!/usr/bin/groovy
+
+
+pipeline {
+	agent any
+	options {
+        	disableConcurrentBuilds()
+    	}
+	environment {
+		PYTHONPATH = "${WORKSPACE}"
+		APP = 'goatdroid.apk'
+		APIKEY ='3fc39aaa54925c9b4a311322d731023295e0e1618f0668695049b07924ca81ef'
+		PORT = '8000'
+	}
+   	stages {
+        	stage("Deploy - Mobsf") {
+			steps { deploy('mobsf') }
+		}
+		stage("Test - Mobsf") {
+            		steps { runUAT() }
+		}
+		stage("Upload APK") {
+			steps { upload() }
+		}
+		stage("Check Report") {
+			steps { CheckReport() }
+		}
+	}
+}
+
+//steps
+def deploy(environment) {
+
+	def containerName = ''
+
+	if ("${environment}" == 'mobsf') {
+		containerName = "mobsf"
+	} 
+	else {
+		println "Environment not valid"
+		System.exit(0)
+	}
+
+	sh "docker ps -f name=${containerName} -q | xargs --no-run-if-empty docker stop"
+	sh "docker ps -a -f name=${containerName} -q | xargs -r docker rm"
+	sh "docker run -d -p ${env.PORT}:8000 --name ${containerName} opensecurity/mobile-security-framework-mobsf:latest"
+
+}
+
+def upload() {
+	
+	sh "curl -F 'file=@mobile/apk/${env.APP}' http://localhost:${env.PORT}/api/v1/upload -H \"Authorization:${env.APIKEY}\""
+}
+
+def runUAT() {
+	sh "chmod 755 mobile/test/runUAT.sh "
+	sh "mobile/test/runUAT.sh 'http://localhost:${env.PORT}' 5"
+}
+
+def CheckReport() {
+	
+	sh "md5sum mobile/apk/${env.APP} > hash"
+	def hash=readFile('hash').trim()
+	
+	sh "mobile/test/runUAT.sh 'http://localhost:${env.PORT}/StaticAnalyzer/?name=${env.APP}&type=apk&checksum=${hash}' 20"
+}
