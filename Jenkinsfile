@@ -49,18 +49,18 @@ def deploy(environment) {
 
 def upload() {
 	
-	sh "curl -F 'file=@mobile/apk/${env.APP}' http://localhost:${env.PORT}/api/v1/upload -H \"Authorization:${env.APIKEY}\""
+	sh "curl -F 'file=@apk/${env.APP}' http://localhost:${env.PORT}/api/v1/upload -H \"Authorization:${env.APIKEY}\""
 }
 
 def runUAT() {
-	sh "chmod 755 mobile/test/runUAT.sh "
-	sh "mobile/test/runUAT.sh 'http://localhost:${env.PORT}' 5"
+	sh "chmod 755 test/runUAT.sh "
+	sh "test/runUAT.sh 'http://localhost:${env.PORT}' 5"
 }
 
 def CheckReport() {
 	
-	sh "md5sum mobile/apk/${env.APP} > hash"
+	sh "md5sum apk/${env.APP} > hash"
 	def hash=readFile('hash').trim()
 	
-	sh "mobile/test/runUAT.sh 'http://localhost:${env.PORT}/StaticAnalyzer/?name=${env.APP}&type=apk&checksum=${hash}' 20"
+	sh "test/runUAT.sh 'http://localhost:${env.PORT}/StaticAnalyzer/?name=${env.APP}&type=apk&checksum=${hash}' 20"
 }
